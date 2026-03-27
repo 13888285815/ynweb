@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useLocation, Outlet } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { 
   Menu, 
   X, 
@@ -10,7 +11,8 @@ import {
   Users,
   Sparkles,
   LogIn,
-  UserPlus
+  UserPlus,
+  Globe
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -19,51 +21,128 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { setLanguage, supportedLanguages, getCurrentLanguage } from '@/i18n';
 
 const products = [
   {
     icon: Layout,
     name: '意念建站',
+    nameEn: 'Yinain Site',
     desc: '可视化拖拽建站工具',
+    descEn: 'Visual drag-and-drop site builder',
     href: '/products/jianzhan'
   },
   {
     icon: Smartphone,
     name: '意念小程序',
+    nameEn: 'Yinain Mini Program',
     desc: '多平台小程序制作',
+    descEn: 'Multi-platform mini program maker',
     href: '/products/miniprogram'
   },
   {
     icon: ShoppingCart,
     name: '意念商城',
+    nameEn: 'Yinain Mall',
     desc: '完整的电商解决方案',
+    descEn: 'Complete e-commerce solution',
     href: '/products/shangcheng'
   },
   {
     icon: Sparkles,
     name: '意念互动',
+    nameEn: 'Yinain Interactive',
     desc: 'H5营销活动工具',
+    descEn: 'H5 marketing activity tools',
     href: '/products/hudong'
   },
   {
     icon: Users,
     name: '意念客户通',
+    nameEn: 'Yinain CRM',
     desc: '客户管理与CRM',
+    descEn: 'Customer management & CRM',
     href: '/products/crm'
   }
 ];
 
 const MainLayout: React.FC = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [currentLang, setCurrentLang] = useState('zh');
+  const [dir, setDir] = useState<'ltr' | 'rtl'>('ltr');
   const location = useLocation();
+  const { t, i18n } = useTranslation();
+
+  // 初始化语言设置
+  useEffect(() => {
+    const initLang = async () => {
+      const savedLang = localStorage.getItem('yinain-lang');
+      if (savedLang) {
+        await setLanguage(savedLang);
+        setCurrentLang(savedLang);
+        const langInfo = supportedLanguages.find(l => l.code === savedLang);
+        if (langInfo) {
+          setDir(langInfo.dir);
+        }
+      } else {
+        // 尝试检测 IP 并设置语言
+        try {
+          const response = await fetch('https://ipapi.co/json/');
+          if (response.ok) {
+            const data = await response.json();
+            const countryCode = data.country_code || 'CN';
+            
+            const countryLangMap: Record<string, string> = {
+              'CN': 'zh', 'JP': 'ja', 'DE': 'de', 'SA': 'ar', 'AE': 'ar',
+              'EG': 'ar', 'US': 'en', 'GB': 'en', 'AU': 'en', 'CA': 'en',
+              'FR': 'en', 'ES': 'en', 'IT': 'en', 'KR': 'ko', 'TW': 'zh',
+              'HK': 'zh', 'MO': 'zh',
+            };
+            
+            const lang = countryLangMap[countryCode] || 'zh';
+            await setLanguage(lang);
+            setCurrentLang(lang);
+            const langInfo = supportedLanguages.find(l => l.code === lang);
+            if (langInfo) {
+              setDir(langInfo.dir);
+            }
+          }
+        } catch (e) {
+          // 使用浏览器语言
+          const browserLang = navigator.language.split('-')[0];
+          if (supportedLanguages.some(l => l.code === browserLang)) {
+            await setLanguage(browserLang);
+            setCurrentLang(browserLang);
+            const langInfo = supportedLanguages.find(l => l.code === browserLang);
+            if (langInfo) {
+              setDir(langInfo.dir);
+            }
+          }
+        }
+      }
+    };
+    
+    initLang();
+  }, []);
+
+  const handleLanguageChange = async (langCode: string) => {
+    await setLanguage(langCode);
+    setCurrentLang(langCode);
+    const langInfo = supportedLanguages.find(l => l.code === langCode);
+    if (langInfo) {
+      setDir(langInfo.dir);
+    }
+  };
 
   // 在控制台页面不使用主布局
   if (location.pathname.startsWith('/dashboard') || location.pathname.startsWith('/console')) {
     return <Outlet />;
   }
 
+  const currentLangInfo = supportedLanguages.find(l => l.code === currentLang) || supportedLanguages[0];
+
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background" dir={dir}>
       {/* Navigation */}
       <header className="fixed top-0 left-0 right-0 z-50 glass">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -81,7 +160,7 @@ const MainLayout: React.FC = () => {
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" className="flex items-center gap-1">
-                    产品 <ChevronDown className="w-4 h-4" />
+                    {t('nav.products')} <ChevronDown className="w-4 h-4" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent className="w-64 bg-card border-border">
@@ -93,8 +172,8 @@ const MainLayout: React.FC = () => {
                       >
                         <product.icon className="w-5 h-5 text-primary" />
                         <div>
-                          <div className="font-medium">{product.name}</div>
-                          <div className="text-xs text-muted-foreground">{product.desc}</div>
+                          <div className="font-medium">{currentLang === 'zh' ? product.name : product.nameEn}</div>
+                          <div className="text-xs text-muted-foreground">{currentLang === 'zh' ? product.desc : product.descEn}</div>
                         </div>
                       </Link>
                     </DropdownMenuItem>
@@ -103,23 +182,45 @@ const MainLayout: React.FC = () => {
               </DropdownMenu>
 
               <Link to="/pricing">
-                <Button variant="ghost">价格</Button>
+                <Button variant="ghost">{t('nav.pricing')}</Button>
               </Link>
               
               <Link to="/products">
-                <Button variant="ghost">案例</Button>
+                <Button variant="ghost">{currentLang === 'zh' ? '案例' : 'Cases'}</Button>
               </Link>
             </nav>
 
-            {/* Auth Buttons */}
+            {/* Auth Buttons & Language Switcher */}
             <div className="hidden md:flex items-center gap-3">
+              {/* Language Switcher */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="sm" className="flex items-center gap-1">
+                    <Globe className="w-4 h-4" />
+                    <span>{currentLangInfo.flag}</span>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="bg-card border-border">
+                  {supportedLanguages.map((lang) => (
+                    <DropdownMenuItem 
+                      key={lang.code}
+                      onClick={() => handleLanguageChange(lang.code)}
+                      className={`cursor-pointer ${currentLang === lang.code ? 'bg-primary/10' : ''}`}
+                    >
+                      <span className="mr-2">{lang.flag}</span>
+                      {lang.name}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+
               <Link to="/auth?mode=login">
-                <Button variant="ghost">登录</Button>
+                <Button variant="ghost">{t('nav.login')}</Button>
               </Link>
               <Link to="/auth?mode=register">
                 <Button className="bg-primary hover:bg-primary/90">
                   <UserPlus className="w-4 h-4 mr-2" />
-                  免费注册
+                  {t('nav.register')}
                 </Button>
               </Link>
             </div>
@@ -142,8 +243,25 @@ const MainLayout: React.FC = () => {
         {mobileMenuOpen && (
           <div className="md:hidden border-t border-border">
             <div className="px-4 py-4 space-y-3">
+              {/* Mobile Language Switcher */}
+              <div className="flex flex-wrap gap-2 pb-2 border-b border-border">
+                {supportedLanguages.map((lang) => (
+                  <button
+                    key={lang.code}
+                    onClick={() => handleLanguageChange(lang.code)}
+                    className={`px-3 py-1 rounded-full text-sm ${
+                      currentLang === lang.code 
+                        ? 'bg-primary text-white' 
+                        : 'bg-muted'
+                    }`}
+                  >
+                    {lang.flag} {lang.name}
+                  </button>
+                ))}
+              </div>
+              
               <div className="space-y-2">
-                <div className="text-sm font-medium text-muted-foreground px-2">产品</div>
+                <div className="text-sm font-medium text-muted-foreground px-2">{t('nav.products')}</div>
                 {products.map((product) => (
                   <Link
                     key={product.name}
@@ -153,28 +271,28 @@ const MainLayout: React.FC = () => {
                   >
                     <product.icon className="w-5 h-5 text-primary" />
                     <div>
-                      <div className="font-medium">{product.name}</div>
-                      <div className="text-xs text-muted-foreground">{product.desc}</div>
+                      <div className="font-medium">{currentLang === 'zh' ? product.name : product.nameEn}</div>
+                      <div className="text-xs text-muted-foreground">{currentLang === 'zh' ? product.desc : product.descEn}</div>
                     </div>
                   </Link>
                 ))}
               </div>
               
               <Link to="/pricing" onClick={() => setMobileMenuOpen(false)}>
-                <Button variant="ghost" className="w-full justify-start">价格</Button>
+                <Button variant="ghost" className="w-full justify-start">{t('nav.pricing')}</Button>
               </Link>
               
               <Link to="/auth?mode=login" onClick={() => setMobileMenuOpen(false)}>
                 <Button variant="ghost" className="w-full justify-start">
                   <LogIn className="w-4 h-4 mr-2" />
-                  登录
+                  {t('nav.login')}
                 </Button>
               </Link>
               
               <Link to="/auth?mode=register" onClick={() => setMobileMenuOpen(false)}>
                 <Button className="w-full bg-primary hover:bg-primary/90">
                   <UserPlus className="w-4 h-4 mr-2" />
-                  免费注册
+                  {t('nav.register')}
                 </Button>
               </Link>
             </div>
@@ -183,45 +301,45 @@ const MainLayout: React.FC = () => {
       </header>
 
       {/* Main Content */}
-      <main className="pt-16">
+      <main className="pt-16" style={{ direction: dir }}>
         <Outlet />
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-border mt-20">
+      <footer className="border-t border-border mt-20" dir="ltr">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
             <div>
-              <h3 className="font-semibold mb-4">产品</h3>
+              <h3 className="font-semibold mb-4">{t('nav.products')}</h3>
               <div className="space-y-2 text-sm text-muted-foreground">
-                <Link to="/products/jianzhan" className="block hover:text-primary">意念建站</Link>
-                <Link to="/products/miniprogram" className="block hover:text-primary">意念小程序</Link>
-                <Link to="/products/shangcheng" className="block hover:text-primary">意念商城</Link>
-                <Link to="/products/hudong" className="block hover:text-primary">意念互动</Link>
+                <Link to="/products/jianzhan" className="block hover:text-primary">{t('products.site')}</Link>
+                <Link to="/products/miniprogram" className="block hover:text-primary">{t('products.miniapp')}</Link>
+                <Link to="/products/shangcheng" className="block hover:text-primary">{t('products.mall')}</Link>
+                <Link to="/products/hudong" className="block hover:text-primary">{t('products.interactive')}</Link>
               </div>
             </div>
             <div>
-              <h3 className="font-semibold mb-4">解决方案</h3>
+              <h3 className="font-semibold mb-4">{currentLang === 'zh' ? '解决方案' : 'Solutions'}</h3>
               <div className="space-y-2 text-sm text-muted-foreground">
-                <Link to="/solutions/enterprise" className="block hover:text-primary">企业官网</Link>
-                <Link to="/solutions/ecommerce" className="block hover:text-primary">电商网站</Link>
-                <Link to="/solutions/education" className="block hover:text-primary">在线教育</Link>
+                <Link to="/solutions/enterprise" className="block hover:text-primary">{currentLang === 'zh' ? '企业官网' : 'Business Website'}</Link>
+                <Link to="/solutions/ecommerce" className="block hover:text-primary">{currentLang === 'zh' ? '电商网站' : 'E-commerce'}</Link>
+                <Link to="/solutions/education" className="block hover:text-primary">{currentLang === 'zh' ? '在线教育' : 'Online Education'}</Link>
               </div>
             </div>
             <div>
-              <h3 className="font-semibold mb-4">资源</h3>
+              <h3 className="font-semibold mb-4">{currentLang === 'zh' ? '资源' : 'Resources'}</h3>
               <div className="space-y-2 text-sm text-muted-foreground">
-                <Link to="/help" className="block hover:text-primary">帮助中心</Link>
-                <Link to="/docs" className="block hover:text-primary">开发文档</Link>
-                <Link to="/blog" className="block hover:text-primary">博客</Link>
+                <Link to="/help" className="block hover:text-primary">{currentLang === 'zh' ? '帮助中心' : 'Help Center'}</Link>
+                <Link to="/docs" className="block hover:text-primary">{currentLang === 'zh' ? '开发文档' : 'Docs'}</Link>
+                <Link to="/blog" className="block hover:text-primary">Blog</Link>
               </div>
             </div>
             <div>
-              <h3 className="font-semibold mb-4">公司</h3>
+              <h3 className="font-semibold mb-4">{currentLang === 'zh' ? '公司' : 'Company'}</h3>
               <div className="space-y-2 text-sm text-muted-foreground">
-                <Link to="/about" className="block hover:text-primary">关于我们</Link>
-                <Link to="/contact" className="block hover:text-primary">联系我们</Link>
-                <Link to="/terms" className="block hover:text-primary">服务条款</Link>
+                <Link to="/about" className="block hover:text-primary">{currentLang === 'zh' ? '关于我们' : 'About'}</Link>
+                <Link to="/contact" className="block hover:text-primary">{currentLang === 'zh' ? '联系我们' : 'Contact'}</Link>
+                <Link to="/terms" className="block hover:text-primary">{currentLang === 'zh' ? '服务条款' : 'Terms'}</Link>
               </div>
             </div>
           </div>
@@ -234,7 +352,7 @@ const MainLayout: React.FC = () => {
               <span className="font-semibold">意念网</span>
             </div>
             <p className="text-sm text-muted-foreground">
-              © 2026 意念网 YINIAN. All rights reserved.
+              {t('footer.copyright')}
             </p>
           </div>
         </div>
